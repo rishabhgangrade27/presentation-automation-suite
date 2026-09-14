@@ -1,0 +1,270 @@
+{
+  "id": "presenton-generation-workflow",
+  "name": "Presenton Presentation Generation",
+  "nodes": [
+    {
+      "id": "wh-generate",
+      "name": "Generate Request (Webhook)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [-400, 0],
+      "webhookId": "presenton-generate",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "presenton/generate",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "code-validate",
+      "name": "Validate & Normalize Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-160, 0],
+      "onError": "continueErrorOutput",
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "language": "javaScript",
+        "jsCode": "const body = $input.item.json.body ?? {};\n\nconst content = String(body.content ?? body.instructions ?? '').trim();\nif (!content) {\n  throw new Error('content (the presentation topic/instructions) is required');\n}\n\nlet n_slides = parseInt(body.n_slides, 10);\nif (!Number.isFinite(n_slides) || n_slides < 1) n_slides = 8;\nif (n_slides > 50) n_slides = 50;\n\nconst allowedTones = ['default', 'casual', 'professional', 'funny', 'educational', 'sales_pitch'];\nconst tone = allowedTones.includes(body.tone) ? body.tone : 'default';\n\nconst allowedVerbosity = ['concise', 'standard', 'text-heavy'];\nconst verbosity = allowedVerbosity.includes(body.verbosity) ? body.verbosity : 'standard';\n\nconst export_as = body.export_as === 'pdf' ? 'pdf' : 'pptx';\n\nconst payload = {\n  content,\n  n_slides,\n  tone,\n  verbosity,\n  export_as,\n  template: typeof body.template === 'string' && body.template.trim() ? body.template.trim() : 'general',\n  include_title_slide: body.include_title_slide !== false,\n  include_table_of_contents: body.include_table_of_contents === true,\n  web_search: body.web_search === true\n};\n\nif (body.instructions && body.instructions !== content) {\n  payload.instructions = String(body.instructions);\n}\nif (body.language) {\n  payload.language = String(body.language);\n}\n\nreturn { json: { payload } };"
+      }
+    },
+    {
+      "id": "http-start",
+      "name": "Start Presenton Generation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [80, -60],
+      "onError": "continueErrorOutput",
+      "parameters": {
+        "method": "POST",
+        "url": "={{ ($env.PRESENTON_BASE_URL || 'http://host.docker.internal:5001') + '/api/v1/ppt/presentation/generate/async' }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.payload) }}",
+        "options": {
+          "timeout": 15000
+        }
+      }
+    },
+    {
+      "id": "set-start-ok",
+      "name": "Build Start Response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [320, -60],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            { "id": "a1", "name": "task_id", "type": "string", "value": "={{ $json.id }}" },
+            { "id": "a2", "name": "status", "type": "string", "value": "={{ $json.status }}" },
+            { "id": "a3", "name": "message", "type": "string", "value": "={{ $json.message }}" },
+            { "id": "a4", "name": "created_slides", "type": "number", "value": "={{ $json.data?.created_slides ?? 0 }}" },
+            { "id": "a5", "name": "remaining_slides", "type": "number", "value": "={{ $json.data?.remaining_slides ?? null }}" },
+            { "id": "a6", "name": "presentation_id", "type": "string", "value": "={{ $json.data?.presentation_id ?? null }}" },
+            { "id": "a7", "name": "check_status_path", "type": "string", "value": "={{ '/webhook/presenton/status/' + $json.id }}" }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "respond-start-ok",
+      "name": "Respond: Job Started",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [560, -60],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": { "responseCode": 202 }
+      }
+    },
+    {
+      "id": "set-start-err",
+      "name": "Build Presenton Error Response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [320, 60],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            { "id": "b1", "name": "status", "type": "string", "value": "error" },
+            { "id": "b2", "name": "error", "type": "string", "value": "={{ $json.error?.message || $json.error || 'Presenton did not accept the generation request' }}" }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "respond-start-err",
+      "name": "Respond: Presenton Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [560, 60],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": { "responseCode": 502 }
+      }
+    },
+    {
+      "id": "set-validate-err",
+      "name": "Build Validation Error Response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [80, 120],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            { "id": "c1", "name": "status", "type": "string", "value": "error" },
+            { "id": "c2", "name": "error", "type": "string", "value": "={{ $json.error?.message || $json.error || 'Invalid request' }}" }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "respond-validate-err",
+      "name": "Respond: Validation Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [320, 120],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": { "responseCode": 400 }
+      }
+    },
+    {
+      "id": "wh-status",
+      "name": "Status Request (Webhook)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [-400, 320],
+      "webhookId": "presenton-status",
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "presenton/status/:id",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "http-status",
+      "name": "Get Task Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [-160, 320],
+      "onError": "continueErrorOutput",
+      "parameters": {
+        "method": "GET",
+        "url": "={{ ($env.PRESENTON_BASE_URL || 'http://host.docker.internal:5001') + '/api/v1/async-tasks/status/' + $json.params.id }}",
+        "options": {
+          "timeout": 10000
+        }
+      }
+    },
+    {
+      "id": "code-status-ok",
+      "name": "Shape Status Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [80, 260],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "language": "javaScript",
+        "jsCode": "const task = $input.item.json;\nconst data = task.data || {};\n\nreturn {\n  json: {\n    task_id: task.id,\n    status: task.status,\n    message: task.message,\n    created_slides: data.created_slides ?? null,\n    remaining_slides: data.remaining_slides ?? null,\n    presentation_id: data.presentation_id ?? null,\n    download_url: data.path ?? null,\n    edit_url: data.edit_path ?? null,\n    error: task.error ?? null\n  }\n};"
+      }
+    },
+    {
+      "id": "respond-status-ok",
+      "name": "Respond: Status",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [320, 260],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": { "responseCode": 200 }
+      }
+    },
+    {
+      "id": "set-status-err",
+      "name": "Build Status Error Response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [80, 400],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            { "id": "d1", "name": "status", "type": "string", "value": "error" },
+            { "id": "d2", "name": "error", "type": "string", "value": "={{ $json.error?.message || $json.error || 'Task not found or Presenton unreachable' }}" }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "respond-status-err",
+      "name": "Respond: Status Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [320, 400],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": { "responseCode": 502 }
+      }
+    }
+  ],
+  "connections": {
+    "Generate Request (Webhook)": {
+      "main": [[{ "node": "Validate & Normalize Input", "type": "main", "index": 0 }]]
+    },
+    "Validate & Normalize Input": {
+      "main": [
+        [{ "node": "Start Presenton Generation", "type": "main", "index": 0 }],
+        [{ "node": "Build Validation Error Response", "type": "main", "index": 0 }]
+      ]
+    },
+    "Start Presenton Generation": {
+      "main": [
+        [{ "node": "Build Start Response", "type": "main", "index": 0 }],
+        [{ "node": "Build Presenton Error Response", "type": "main", "index": 0 }]
+      ]
+    },
+    "Build Start Response": {
+      "main": [[{ "node": "Respond: Job Started", "type": "main", "index": 0 }]]
+    },
+    "Build Presenton Error Response": {
+      "main": [[{ "node": "Respond: Presenton Error", "type": "main", "index": 0 }]]
+    },
+    "Build Validation Error Response": {
+      "main": [[{ "node": "Respond: Validation Error", "type": "main", "index": 0 }]]
+    },
+    "Status Request (Webhook)": {
+      "main": [[{ "node": "Get Task Status", "type": "main", "index": 0 }]]
+    },
+    "Get Task Status": {
+      "main": [
+        [{ "node": "Shape Status Response", "type": "main", "index": 0 }],
+        [{ "node": "Build Status Error Response", "type": "main", "index": 0 }]
+      ]
+    },
+    "Shape Status Response": {
+      "main": [[{ "node": "Respond: Status", "type": "main", "index": 0 }]]
+    },
+    "Build Status Error Response": {
+      "main": [[{ "node": "Respond: Status Error", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}

@@ -1,0 +1,17 @@
+# top-level env / local files
+.env
+.env.local
+*.local
+
+# node
+node_modules/
+npm-debug.log*
+
+# build outputs
+dist/
+.next/
+out/
+
+# misc
+.DS_Store
+*.log

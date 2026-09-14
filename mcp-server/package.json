@@ -1,0 +1,26 @@
+{
+  "name": "presenton-mcp-server",
+  "version": "1.0.0",
+  "description": "MCP server that generates presentations through the Presenton + n8n workflow",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "tsx src/stdio.ts",
+    "start:http": "tsx src/http.ts",
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx watch src/stdio.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/node": "^2.0.0",
+    "@modelcontextprotocol/server": "^2.0.0",
+    "dotenv": "^17.4.2",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "tsx": "^4.23.13",
+    "typescript": "^5.7.2",
+    "@types/node": "^22.10.2"
+  }
+}
