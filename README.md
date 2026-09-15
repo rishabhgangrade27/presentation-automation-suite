@@ -216,13 +216,19 @@ Note the status webhook takes `id` as a **query parameter**, not a path segment
 cd frontend
 npm install
 cp .env.local.example .env.local    # defaults to N8N_BASE_URL=http://localhost:5678
-npm run dev
+npx next dev -p 3002
 ```
 
-Open `http://localhost:3000` (or another port if that one's taken — see the note in
-`frontend/README.md` about Presenton's own Next.js dev server also wanting port 3000 if you're
-running both on the same machine), fill in a topic, hit **Generate presentation**, watch it
-poll, download the PPTX when it's done.
+**Use `-p 3002` (or any port other than 3000), not plain `npm run dev`.** Presenton's own
+Next.js dev server from step 1 is already on port 3000. Running this frontend's `next dev`
+without an explicit port binds to `0.0.0.0:3000` alongside Presenton's `127.0.0.1:3000` — Next
+js prints "Ready" with **no conflict warning at all**, but `http://localhost:3000` then
+silently routes to Presenton's own UI instead of this frontend (confirmed directly: a
+`curl localhost:3000/api/generate` returned Presenton's own `{"detail":"Unauthorized"}`, not
+this app's route). An explicit non-3000 port sidesteps the ambiguity entirely.
+
+Open `http://localhost:3002`, fill in a topic, hit **Generate presentation**, watch it poll,
+download the PPTX when it's done.
 
 ### 4. Run the MCP server
 
