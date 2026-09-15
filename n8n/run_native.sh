@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Runs n8n natively on Windows (no Docker), pointed at the native Presenton
-# FastAPI backend proven working in this session.
+# Runs n8n natively (no Docker), pointed at a native Presenton FastAPI backend.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 set -a
-N8N_USER_FOLDER="C:\Desktop\Projects\presentation-automation-suite\n8n\.n8n_native_data"
+N8N_USER_FOLDER="$SCRIPT_DIR/.n8n_native_data"
 N8N_PORT=5678
 N8N_HOST="127.0.0.1"
 N8N_PROTOCOL=http

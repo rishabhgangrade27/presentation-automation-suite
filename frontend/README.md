@@ -21,6 +21,5 @@ which env var is set (`PRESENTON_BASE_URL` takes priority if both are present):
   Presenton. This is what the assessment asks for and what `npm run dev` is configured for by
   default in `.env.local.example`.
 - **`PRESENTON_BASE_URL`** — calls Presenton directly via `lib/presentonDirect.ts`, bypassing
-  n8n entirely. This exists because the frontend was built and validated in isolation while
-  n8n was being fixed separately in this project's timeline; it's kept as a useful way to test
-  the frontend/Presenton contract without n8n in the loop, not as the intended production path.
+  n8n entirely. Useful for testing the frontend/Presenton contract without n8n in the loop, but
+  not the intended path — the n8n-mediated flow above is what this project is meant to use.
