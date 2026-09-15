@@ -69,11 +69,13 @@ export async function startGenerationJob(input: GenerateInput): Promise<StartJob
   return readJsonOrThrow(res, 'Starting presentation generation');
 }
 
-/** Reads current job status via the n8n "status" webhook. */
+/** Reads current job status via the n8n "status" webhook (query-param based --
+ * this n8n release's dynamic-webhook matching only supports a dynamic prefix
+ * segment, not a `:param` elsewhere in the path, so the workflow exposes
+ * status as ?id=... rather than /status/<id>). */
 export async function getJobStatus(taskId: string): Promise<JobStatusResult> {
-  const res = await fetch(`${N8N_BASE_URL}${STATUS_WEBHOOK_PATH_PREFIX}/${encodeURIComponent(taskId)}`, {
-    method: 'GET',
-  });
+  const url = `${N8N_BASE_URL}${STATUS_WEBHOOK_PATH_PREFIX}?id=${encodeURIComponent(taskId)}`;
+  const res = await fetch(url, { method: 'GET' });
   return readJsonOrThrow(res, 'Checking presentation generation status');
 }
 

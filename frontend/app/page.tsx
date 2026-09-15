@@ -337,12 +337,12 @@ export default function Home() {
                     Download {exportAs.toUpperCase()}
                   </a>
                 )}
-                {result.edit_url && (
+                {result.edit_url && (result.edit_url.startsWith('http') || result.download_url) && (
                   <a
                     href={
                       result.edit_url.startsWith('http')
                         ? result.edit_url
-                        : `${new URL(result.download_url || 'http://localhost:5001').origin}${result.edit_url}`
+                        : `${new URL(result.download_url!).origin}${result.edit_url}`
                     }
                     target="_blank"
                     rel="noreferrer"

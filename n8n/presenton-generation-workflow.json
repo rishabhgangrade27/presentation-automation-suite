@@ -33,12 +33,12 @@
       "id": "http-start",
       "name": "Start Presenton Generation",
       "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.5,
+      "typeVersion": 4.4,
       "position": [80, -60],
       "onError": "continueErrorOutput",
       "parameters": {
         "method": "POST",
-        "url": "={{ ($env.PRESENTON_BASE_URL || 'http://host.docker.internal:5001') + '/api/v1/ppt/presentation/generate/async' }}",
+        "url": "={{ ($env.PRESENTON_BASE_URL || 'http://127.0.0.1:8000') + '/api/v1/ppt/presentation/generate/async' }}",
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify($json.payload) }}",
@@ -51,7 +51,7 @@
       "id": "set-start-ok",
       "name": "Build Start Response",
       "type": "n8n-nodes-base.set",
-      "typeVersion": 3.5,
+      "typeVersion": 3.4,
       "position": [320, -60],
       "parameters": {
         "mode": "manual",
@@ -63,7 +63,7 @@
             { "id": "a4", "name": "created_slides", "type": "number", "value": "={{ $json.data?.created_slides ?? 0 }}" },
             { "id": "a5", "name": "remaining_slides", "type": "number", "value": "={{ $json.data?.remaining_slides ?? null }}" },
             { "id": "a6", "name": "presentation_id", "type": "string", "value": "={{ $json.data?.presentation_id ?? null }}" },
-            { "id": "a7", "name": "check_status_path", "type": "string", "value": "={{ '/webhook/presenton/status/' + $json.id }}" }
+            { "id": "a7", "name": "check_status_path", "type": "string", "value": "={{ '/webhook/presenton/status?id=' + $json.id }}" }
           ]
         },
         "options": {}
@@ -85,7 +85,7 @@
       "id": "set-start-err",
       "name": "Build Presenton Error Response",
       "type": "n8n-nodes-base.set",
-      "typeVersion": 3.5,
+      "typeVersion": 3.4,
       "position": [320, 60],
       "parameters": {
         "mode": "manual",
@@ -114,7 +114,7 @@
       "id": "set-validate-err",
       "name": "Build Validation Error Response",
       "type": "n8n-nodes-base.set",
-      "typeVersion": 3.5,
+      "typeVersion": 3.4,
       "position": [80, 120],
       "parameters": {
         "mode": "manual",
@@ -148,7 +148,7 @@
       "webhookId": "presenton-status",
       "parameters": {
         "httpMethod": "GET",
-        "path": "presenton/status/:id",
+        "path": "presenton/status",
         "responseMode": "responseNode",
         "options": {}
       }
@@ -157,12 +157,12 @@
       "id": "http-status",
       "name": "Get Task Status",
       "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.5,
+      "typeVersion": 4.4,
       "position": [-160, 320],
       "onError": "continueErrorOutput",
       "parameters": {
         "method": "GET",
-        "url": "={{ ($env.PRESENTON_BASE_URL || 'http://host.docker.internal:5001') + '/api/v1/async-tasks/status/' + $json.params.id }}",
+        "url": "={{ ($env.PRESENTON_BASE_URL || 'http://127.0.0.1:8000') + '/api/v1/async-tasks/status/' + $json.query.id }}",
         "options": {
           "timeout": 10000
         }
@@ -177,7 +177,7 @@
       "parameters": {
         "mode": "runOnceForEachItem",
         "language": "javaScript",
-        "jsCode": "const task = $input.item.json;\nconst data = task.data || {};\n\nreturn {\n  json: {\n    task_id: task.id,\n    status: task.status,\n    message: task.message,\n    created_slides: data.created_slides ?? null,\n    remaining_slides: data.remaining_slides ?? null,\n    presentation_id: data.presentation_id ?? null,\n    download_url: data.path ?? null,\n    edit_url: data.edit_path ?? null,\n    error: task.error ?? null\n  }\n};"
+        "jsCode": "const task = $input.item.json;\nconst data = task.data || {};\n\n// Presenton (native, non-Docker) returns exported files as raw OS filesystem\n// paths, e.g. \"C:\\\\...\\\\app_data_native\\\\exports\\\\pptx\\\\deck.pptx\" -- not a\n// URL. FastAPI serves that same tree at /app_data/*, so rebuild a fetchable\n// URL by keeping only the path from \"exports\" onward.\nfunction toDownloadUrl(rawPath) {\n  if (!rawPath) return null;\n  if (rawPath.startsWith('http://') || rawPath.startsWith('https://')) return rawPath;\n  const base = $env.PRESENTON_BASE_URL || 'http://127.0.0.1:8000';\n  const normalized = rawPath.replace(/\\\\/g, '/');\n  const idx = normalized.toLowerCase().indexOf('/exports/');\n  const relative = idx >= 0 ? normalized.slice(idx + 1) : normalized.replace(/^\\/+/, '');\n  return base.replace(/\\/$/, '') + '/app_data/' + relative;\n}\n\nreturn {\n  json: {\n    task_id: task.id,\n    status: task.status,\n    message: task.message,\n    created_slides: data.created_slides ?? null,\n    remaining_slides: data.remaining_slides ?? null,\n    presentation_id: data.presentation_id ?? null,\n    download_url: toDownloadUrl(data.path),\n    edit_url: data.edit_path ?? null,\n    error: task.error ?? null\n  }\n};"
       }
     },
     {
@@ -196,7 +196,7 @@
       "id": "set-status-err",
       "name": "Build Status Error Response",
       "type": "n8n-nodes-base.set",
-      "typeVersion": 3.5,
+      "typeVersion": 3.4,
       "position": [80, 400],
       "parameters": {
         "mode": "manual",

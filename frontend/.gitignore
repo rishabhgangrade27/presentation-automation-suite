@@ -30,8 +30,9 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# env files -- but keep the .example templates, needed for setup reproducibility
 .env*
+!.env*.example
 
 # vercel
 .vercel
@@ -39,3 +40,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# scaffolding Next.js regenerates on `next dev` -- not part of this project
+AGENTS.md
+CLAUDE.md
