@@ -9,8 +9,8 @@ This README describes what was actually built and verified, including problems f
 way and how they were fixed. Claims below are limited to what has concrete evidence behind them.
 
 **Demo video:**
-[Watch the walkthrough on Loom - 1](https://www.loom.com/share/37e2a11f64354800996f02f027d2c11e)
-[Watch the walkthrough on Loom - 2](https://www.loom.com/share/62ff446420db45439d671c8543b5ea48)
+1. [Watch the walkthrough on Loom - 1](https://www.loom.com/share/37e2a11f64354800996f02f027d2c11e)
+2. [Watch the walkthrough on Loom - 2](https://www.loom.com/share/62ff446420db45439d671c8543b5ea48)
 
 ## What this is
 
